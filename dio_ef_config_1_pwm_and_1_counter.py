@@ -104,7 +104,7 @@ aValues = [
     2,  # CHanged from 0 to 2
     configA, # Set the PWM feature index and duty cycle (configA)
     0,  #Added (config B)
-    500000, #Added (config C)
+    1, #Added (config C)
     1, 
 ] # Set the counter feature index and enable the counter.
 if len(aNames) != len(aValues):
