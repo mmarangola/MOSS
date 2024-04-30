@@ -61,11 +61,13 @@ counterDIO = 18
 # T7 core frequency is 80 MHz
 coreFreq = 80_000_000
 
+# dutyCycle became pulseLength in __microseconds__ (because of pwmFreq)
 
 pwmFreq = 10000 # output frequency (also the number of pulses per second)
 print("Desired output frequency: %f Hz" % (pwmFreq))
-dutyCycle = 25 # % duty cycle
-print("Desired output duty cycle: %f %%" % (dutyCycle))
+pulseLength = 10 # % duty cycle
+numPulses = 7
+print("Desired output duty cycle: %f %%" % pulseLength)
 clockDivisor = 8 # DIO_EF_CLOCK#_DIVISOR
 
 clockFreq = coreFreq / clockDivisor # DIO_EF_CLOCK frequency
@@ -76,7 +78,7 @@ clockFreq = coreFreq / clockDivisor # DIO_EF_CLOCK frequency
 # interpreted as the nearest integer value on the device.
 rollValue = float(clockFreq // pwmFreq) # DIO_EF_CLOCK#_ROLL_VALUE
 print("Actual output frequency: %f Hz" % (clockFreq/rollValue))
-configA = float(dutyCycle * rollValue // 100) # DIO#_EF_CONFIG_A
+configA = float(pulseLength * rollValue // 100) # DIO#_EF_CONFIG_A
 print("Actual output duty cycle: %f %%" % (configA*100/rollValue))
 print(f"configA: {configA}")
 
@@ -104,7 +106,7 @@ aValues = [
     2,  # CHanged from 0 to 2
     configA, # Set the PWM feature index and duty cycle (configA)
     0,  #Added (config B)
-    1, #Added (config C)
+    numPulses, #Added (config C)
     1, 
 ] # Set the counter feature index and enable the counter.
 if len(aNames) != len(aValues):
@@ -115,7 +117,7 @@ print("Starting Signal")
 results = ljm.eWriteNames(handle, numFrames, aNames, aValues)
 
 # Wait 1 second.
-time.sleep(10.0)
+time.sleep(1.0)
 print("Stopping Signal")
 # Disable the DIO_EF clock, PWM output, and counter.
 aNames = ["DIO_EF_CLOCK0_ENABLE", "DIO%i_EF_ENABLE" % pwmDIO,
