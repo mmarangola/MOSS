@@ -59,14 +59,14 @@ deviceType = info[0]
 pwmDIO = 0
 counterDIO = 18
 # T7 core frequency is 80 MHz
-coreFreq = 80000000
+coreFreq = 80_000_000
 
 
 pwmFreq = 10000 # output frequency (also the number of pulses per second)
 print("Desired output frequency: %f Hz" % (pwmFreq))
 dutyCycle = 25 # % duty cycle
 print("Desired output duty cycle: %f %%" % (dutyCycle))
-clockDivisor = 1 # DIO_EF_CLOCK#_DIVISOR
+clockDivisor = 8 # DIO_EF_CLOCK#_DIVISOR
 
 clockFreq = coreFreq / clockDivisor # DIO_EF_CLOCK frequency
 # Note: the roll value and config A are integer values. Both represent a number
@@ -78,46 +78,45 @@ rollValue = float(clockFreq // pwmFreq) # DIO_EF_CLOCK#_ROLL_VALUE
 print("Actual output frequency: %f Hz" % (clockFreq/rollValue))
 configA = float(dutyCycle * rollValue // 100) # DIO#_EF_CONFIG_A
 print("Actual output duty cycle: %f %%" % (configA*100/rollValue))
-
+print(f"configA: {configA}")
 
 aNames = [
-    "DIO_EF_CLOCK0_ENABLE",
-    "DIO_EF_CLOCK0_DIVISOR",
-    "DIO_EF_CLOCK0_ROLL_VALUE",
-    "DIO_EF_CLOCK0_ENABLE", 
-    "DIO%i_EF_ENABLE" % pwmDIO,
+    "DIO_EF_CLOCK0_ENABLE",  # checked
+    "DIO_EF_CLOCK0_DIVISOR",  # checked
+    "DIO_EF_CLOCK0_ROLL_VALUE",  # checked
+    "DIO_EF_CLOCK0_ENABLE",   # checked
+    "DIO%i_EF_ENABLE" % pwmDIO,  # checked
+    "DIO%i" %pwmDIO,  # Added
     "DIO%i_EF_INDEX" % pwmDIO, 
     "DIO%i_EF_CONFIG_A" % pwmDIO,
+    "DIO%i_EF_CONFIG_B" % pwmDIO,
+    "DIO%i_EF_CONFIG_C" % pwmDIO,
     "DIO%i_EF_ENABLE" % pwmDIO, 
-    "DIO%i_EF_ENABLE" % counterDIO,
-    "DIO%i_EF_INDEX" % counterDIO, 
-    "DIO%i_EF_ENABLE" % counterDIO
 ]
+
 aValues = [
     0, # Disable the DIO_EF clock
     clockDivisor, 
     rollValue, # Set DIO_EF clock divisor and roll for PWM
     1, 
     0, # Enable the clock and disable any features on the PWM DIO
-    0, 
+    0, # Added
+    2,  # CHanged from 0 to 2
     configA, # Set the PWM feature index and duty cycle (configA)
+    0,  #Added (config B)
+    500000, #Added (config C)
     1, 
-    0, # Enable the PWM and disable any features on the counter DIO
-    7, 
-    1
 ] # Set the counter feature index and enable the counter.
+if len(aNames) != len(aValues):
+    raise("Check your settings")
+
 numFrames = len(aNames)
+print("Starting Signal")
 results = ljm.eWriteNames(handle, numFrames, aNames, aValues)
 
 # Wait 1 second.
-time.sleep(2.0)
-
-# Read from the counter. Since we waited 1 second, we expect the value read to
-# be close to the PWM frequency (10000 pulses per second)
-value = ljm.eReadName(handle, "DIO%i_EF_READ_A" %counterDIO)
-
-print("\nCounter = %f" % (value))
-
+time.sleep(10.0)
+print("Stopping Signal")
 # Disable the DIO_EF clock, PWM output, and counter.
 aNames = ["DIO_EF_CLOCK0_ENABLE", "DIO%i_EF_ENABLE" % pwmDIO,
           "DIO%i_EF_ENABLE" % counterDIO]
@@ -127,3 +126,4 @@ results = ljm.eWriteNames(handle, numFrames, aNames, aValues)
 
 # Close handle
 ljm.close(handle)
+print("Exiting")
