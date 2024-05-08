@@ -1,44 +1,12 @@
+#!/usr/bin/env python
+
 """
-Enables a 10 kHz PWM output and high-speed counter, waits 1 second, and reads
-the counter. If you jumper the counter to the PWM the value read from the
-counter should be close to 10000.
-
-Relevant Documentation:
-
-LJM Library:
-    LJM Library Installer:
-        https://labjack.com/support/software/installers/ljm
-    LJM Users Guide:
-        https://labjack.com/support/software/api/ljm
-    Opening and Closing:
-        https://labjack.com/support/software/api/ljm/function-reference/opening-and-closing
-    Multiple Value Functions(such as eWriteNames):
-        https://labjack.com/support/software/api/ljm/function-reference/multiple-value-functions
-
-T-Series and I/O:
-    Modbus Map:
-        https://labjack.com/support/software/api/modbus/modbus-map
-    Digital I/O:
-        https://labjack.com/support/datasheets/t-series/digital-io
-    Extended DIO Features:
-        https://labjack.com/support/datasheets/t-series/digital-io/extended-features
-    PWM Out:
-        https://labjack.com/support/datasheets/t-series/digital-io/extended-features/pwm-out
-    High-Speed Counter:
-        https://labjack.com/support/datasheets/t-series/digital-io/extended-features/high-speed-counter
-
-Note:
-    Our Python interfaces throw exceptions when there are any issues with
-    device communications that need addressed. Many of our examples will
-    terminate immediately when an exception is thrown. The onus is on the API
-    user to address the cause of any exceptions thrown, and add exception
-    handling when appropriate. We create our own exception classes that are
-    derived from the built-in Python Exception class and can be caught as such.
-    For more information, see the implementation in our source code and the
-    Python standard documentation.
+Creates one of three things: a) a pulse that on for a specified time interval, b) a series of pulses at 
+a given duty cycle and frequency, or c) a modulated pulse for a specified time interval at a given 
+frequency. Type pulses.py -h for help.
 """
+
 import time
-
 from labjack import ljm
 import numpy as np
 import matplotlib.pyplot as plt
@@ -56,31 +24,27 @@ def pulse(freq=10_000, dutyCycle=50, numPulses=7):
     # dutyCycle became pulseLength in __microseconds__ (because of pwmFreq)
 
     freq = freq # output frequency (also the number of pulses per second)
-    print("Desired output frequency: %f Hz" % freq)
+    # print("Desired output frequency: %f Hz" % freq)
     dutyCycle = dutyCycle # % duty cycle
     numPulses = numPulses
-    print("Desired output duty cycle: %f %%" % dutyCycle)
+    # print("Desired output duty cycle: %f %%" % dutyCycle)
     clockDivisor = 8 # DIO_EF_CLOCK#_DIVISOR
 
     clockFreq = coreFreq / clockDivisor # DIO_EF_CLOCK frequency
-    # Note: the roll value and config A are integer values. Both represent a number
-    # of clock ticks, and you cannot have a fractional number of clock ticks. If
-    # your PWM frequency and duty cycle do not divide into an integer value for
-    # these settings, your desired settings are not possible and the values will be
-    # interpreted as the nearest integer value on the device.
-    rollValue = float(clockFreq // freq) # DIO_EF_CLOCK#_ROLL_VALUE
+
+    # rollValue and configA represent numbers of clock ticks -> integer division
+    rollValue = float(clockFreq // freq) # DIO_EF_CLOCK#_ROLL_VALUE 
     print("Actual output frequency: %f Hz" % (clockFreq/rollValue))
     configA = float(dutyCycle * rollValue // 100) # DIO#_EF_CONFIG_A
-    print("Actual output duty cycle: %f %%" % (configA*100/rollValue))
-    print(f"configA: {configA}")
+    print("Actual output duty cycle: %f %%" % (configA*100/rollValue)) 
 
     aNames = [
         "DIO_EF_CLOCK0_ENABLE",  # checked
         "DIO_EF_CLOCK0_DIVISOR",  # checked
         "DIO_EF_CLOCK0_ROLL_VALUE",  # checked
         "DIO_EF_CLOCK0_ENABLE",   # checked
-        "DIO%i_EF_ENABLE" % pwmDIO,  # checked
-        "DIO%i" %pwmDIO,  # Added
+        "DIO%i_EF_ENABLE" % pwmDIO,  
+        "DIO%i" %pwmDIO, 
         "DIO%i_EF_INDEX" % pwmDIO, 
         "DIO%i_EF_CONFIG_A" % pwmDIO,
         "DIO%i_EF_CONFIG_B" % pwmDIO,
@@ -102,43 +66,47 @@ def pulse(freq=10_000, dutyCycle=50, numPulses=7):
         1, 
     ] # Set the counter feature index and enable the counter.
     if len(aNames) != len(aValues):
-        raise("Check your settings")
+        raise("Check list lengths")
 
     numFrames = len(aNames)
-    print("Starting Signal")
-    results = ljm.eWriteNames(handle, numFrames, aNames, aValues)
-
+    
     # variables
     # pwmFreq - maximum potential pulses per second
     # pulseLength = duty cycle - percent of each cycle that the laser is on
+    
+    if args.graph:
+        RES = 100
+        PULSES_LEN = numPulses/freq
 
-    RES = 100
-    PULSES_LEN = numPulses/freq
+        print("Close plot to start signal.")
+
+        index = np.arange(0,freq*PULSES_LEN*RES)
+        y = np.zeros(len(index))
+
+        count = 0
+
+        for i in range(len(index)//100):
+            for j in range(100):
+                if j<dutyCycle:
+                    y[count] = 5
+                else:
+                    y[count] = 0
+                count = count + 1
+
+        plt.plot(index/(freq*RES),y)
+        plt.title("Expected Output")
+        plt.ylabel("V Out (Volts)")
+        plt.xlabel("time (seconds)")
+        plt.show()
 
 
-    index = np.arange(0,freq*PULSES_LEN*RES)
-    y = np.zeros(len(index))
-
-    count = 0
-
-    for i in range(len(index)//100):
-        for j in range(100):
-            if j<dutyCycle:
-                y[count] = 5
-            else:
-                y[count] = 0
-            count = count + 1
-
-    plt.plot(index/(freq*RES),y)
-    plt.title("Expected Output")
-    plt.ylabel("V Out (Volts)")
-    plt.xlabel("time (seconds)")
-
-    plt.show()
+    
+    print("Starting Signal")
+    results = ljm.eWriteNames(handle, numFrames, aNames, aValues)
 
 
-    # Wait 1 second.
-    time.sleep(1.0)
+    # Wait length seconds.
+    time.sleep(PULSES_LEN)
     print("Stopping Signal")
     # Disable the DIO_EF clock, PWM output, and counter.
     aNames = ["DIO_EF_CLOCK0_ENABLE", "DIO%i_EF_ENABLE" % pwmDIO,
@@ -167,17 +135,21 @@ def leaveOn(on_seconds:float):
     # alternate code if above does not work
     # dataType = ljm.constants.FLOAT32
     # value = 5.0 # 5 volts
-    ljm.eWriteAddress(handle, address, dataType, value)
     
-    x_vals = np.arange(on_seconds)
-    y_vals = np.zeros(len(x_vals))
-    y_vals[::] = 5
-    plt.plot(x_vals, y_vals)
-    plt.title("Expected Output")
-    plt.ylabel("V Out (Volts)")
-    plt.xlabel("time (seconds)")
-    plt.show()
+    
+    if args.graph:
+        x_vals = np.arange(on_seconds)
+        y_vals = np.zeros(len(x_vals))
+        y_vals[::] = 5
 
+        print("Close plot to start signal.")
+        plt.plot(x_vals, y_vals)
+        plt.title("Expected Output")
+        plt.ylabel("V Out (Volts)")
+        plt.xlabel("time (seconds)")
+        plt.show()
+
+    ljm.eWriteAddress(handle, address, dataType, value)
     print(f"{on_seconds} seconds of pulse")
     time.sleep(on_seconds)
 
@@ -186,10 +158,95 @@ def leaveOn(on_seconds:float):
     print(f"Pulse ended")
 
 
-def pwm():
-    pass
+def pwm(freq, dutyCycle, duration):
+    pwmFreq = freq # output frequency (also the number of pulses per second)
+    print("Desired output frequency: %f Hz" % (pwmFreq))
+    # % duty cycle
+    print("Desired output duty cycle: %f %%" % (dutyCycle))
+    clockDivisor = 1 # DIO_EF_CLOCK#_DIVISOR
+
+    clockFreq = coreFreq / clockDivisor 
+    rollValue = float(clockFreq // pwmFreq) # DIO_EF_CLOCK#_ROLL_VALUE
+    print("Actual output frequency: %f Hz" % (clockFreq/rollValue))
+    configA = float(dutyCycle * rollValue // 100) # DIO#_EF_CONFIG_A
+    print("Actual output duty cycle: %f %%" % (configA*100/rollValue))
+
+
+    aNames = ["DIO_EF_CLOCK0_ENABLE",
+            "DIO_EF_CLOCK0_DIVISOR", 
+            "DIO_EF_CLOCK0_ROLL_VALUE",
+            "DIO_EF_CLOCK0_ENABLE", 
+            "DIO%i_EF_ENABLE" % pwmDIO,
+            "DIO%i_EF_INDEX" % pwmDIO, 
+            "DIO%i_EF_CONFIG_A" % pwmDIO,
+            "DIO%i_EF_ENABLE" % pwmDIO, 
+            "DIO%i_EF_ENABLE" % counterDIO,
+            "DIO%i_EF_INDEX" % counterDIO, 
+            "DIO%i_EF_ENABLE" % counterDIO]
+    aValues = [0, # Disable the DIO_EF clock
+            clockDivisor, # Set DIO_EF clock divisor
+            rollValue, #  Set roll for PWM
+            1,  # Enable the clock 
+            0, #  Disable any features on the PWM DIO
+            0, # Set the PWM feature index
+            configA, # Set the duty cycle (configA)
+            1, # Enable the PWM 
+            0, # Disable any features on the counter DIO
+            7, # Set the counter feature index
+            1] # Enable the counter.
+    
+    numFrames = len(aNames)
+
+    if args.graph:
+        # pwmFreq - maximum potential pulses per second
+        # duration - total time the laser is flashing (seconds)
+        # dutyCycle - percent of each cycle that the laser is on
+
+        RES = 100
+        PULSES_LEN = duration
+
+        index = np.arange(0,freq*PULSES_LEN*RES)
+        y = np.zeros(len(index))
+
+        count = 0
+
+        for i in range(len(index)//100):
+            for j in range(100):
+                if j<dutyCycle:
+                    y[count] = 5
+                else:
+                    y[count] = 0
+                count = count + 1
+
+        print("Close plot to start signal.")
+
+        plt.plot(index/(pwmFreq*RES),y)
+        plt.title("Expected Output")
+        plt.ylabel("V Out (Volts)")
+        plt.xlabel("time (seconds)")
+        print("line 219")
+        plt.show()
+
+
+    print("Starting pwm")
+    results = ljm.eWriteNames(handle, numFrames, aNames, aValues)
+    
+    # Wait duration seconds.
+    time.sleep(duration)
+
+    print("Stopping pwm")
+    # Disable the DIO_EF clock, PWM output, and counter.
+    aNames = ["DIO_EF_CLOCK0_ENABLE", "DIO%i_EF_ENABLE" % pwmDIO,
+            "DIO%i_EF_ENABLE" % counterDIO]
+    aValues = [0, 0, 0]
+    numFrames = len(aNames)
+    results = ljm.eWriteNames(handle, numFrames, aNames, aValues)
+
+
+
 
  # Open LabJack
+
 handle = ljm.openS("T7", "ANY", "ANY")  # T7 device, Any connection, Any identifier
 
 info = ljm.getHandleInfo(handle)
@@ -207,16 +264,66 @@ counterDIO = 18
 # T7 core frequency is 80 MHz
 coreFreq = 80_000_000
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-o", "--on", help="pulse on for number of seconds", action="store_true")
+# command line functionality (imported argparse above)
+
+parser = argparse.ArgumentParser(
+    prog="Pulse Generator",
+    description="Send laser pulse(s)",
+    epilog="Created by Meghan Marangola.",
+)
+parser.add_argument(
+    "-n",
+    "--number_pulses",
+    type=int,
+    help="The duration the pulse is on. If set to 0, pwn function will run",
+    required=True,
+)
+parser.add_argument(
+    "-d",
+    "--duty_cycle",
+    type=float,
+    help="Percentage of time the pulse is on. If set to 100, leaveOn function will run.",
+    default=50,
+)
+parser.add_argument(
+    "-f",
+    "--frequency",
+    type=int,
+    help="Maximum number of pulses per second",
+    default=10_000,
+)
+parser.add_argument(
+    "-g",
+    "--graph",
+    action="store_true",
+    help="Create a graph of the pulses",
+)
+
+parser.add_argument(
+    "-p",
+    "--pwm_duration",
+    type=float,
+    help="Duration of pwm or leaveOn",
+)
+
 args = parser.parse_args()
-print(args)
 
-if args.on:
-    leaveOn(*args)
-# elif x == 2:
-#     pulse()
-# else:
-#     pwm()
+if args.number_pulses == 1 and args.duty_cycle == 100:
+    print(f"Single pulse, run leaveOn routine for {args.frequency} seconds")
+    leaveOn(args.frequency)
+elif args.number_pulses == 0:
+    print(f"Run pwm routine at {args.duty_cycle}% duty cycle and {args.frequency} Hz, for {args.pwm_duration} seconds")
+    pwm(args.frequency, args.duty_cycle, args.pwm_duration)
+else:
+    print(
+        f"Create {args.number_pulses} pulse(s) that will be on for "
+        f"{args.duty_cycle}% of the time at a "
+        f"frequency of {args.frequency} pulses per second"
+    )
+    pulse(args.frequency, args.duty_cycle, args.number_pulses)
+if args.graph:
+    print("Graphing is enabled")
+else:
+    print("Graphing is disabled")
 
-# shutdown()
+shutdown()
