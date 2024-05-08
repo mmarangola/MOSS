@@ -247,6 +247,8 @@ def pwm(freq, dutyCycle, duration):
 
  # Open LabJack
 
+
+# Startup procedure: open labjack and print info
 handle = ljm.openS("T7", "ANY", "ANY")  # T7 device, Any connection, Any identifier
 
 info = ljm.getHandleInfo(handle)
@@ -257,8 +259,8 @@ print("Opened a LabJack with Device type: %i, Connection type: %i,\n"
 deviceType = info[0]
 
 # Configure the PWM output and counter.
-# For the T7, use FIO0 (DIO0) for the PWM output
-# Use CIO2 (DIO18) for the high speed counter
+# FIO0 (DIO0) = PWM output
+# CIO2 (DIO18) = high speed counter
 pwmDIO = 0
 counterDIO = 18
 # T7 core frequency is 80 MHz
@@ -303,11 +305,12 @@ parser.add_argument(
     "-p",
     "--pwm_duration",
     type=float,
-    help="Duration of pwm or leaveOn",
+    help="Duration of pwm",
 )
 
 args = parser.parse_args()
 
+# command line input decision tree
 if args.number_pulses == 1 and args.duty_cycle == 100:
     print(f"Single pulse, run leaveOn routine for {args.frequency} seconds")
     leaveOn(args.frequency)
@@ -326,4 +329,5 @@ if args.graph:
 else:
     print("Graphing is disabled")
 
+# close the labjack
 shutdown()
