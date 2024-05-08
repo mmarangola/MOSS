@@ -42,16 +42,24 @@ import time
 from labjack import ljm
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 
-def pulse():
+def pulse(freq=10_000, dutyCycle=50, numPulses=7):
+    """ Send in a given number of pulses at a given frequency and duty cycle.
+
+    Args:
+        freq (_type_, optional): _description_. Defaults to 10_000.
+        dutyCycle (int, optional): _description_. Defaults to 50.
+        numPulses (int, optional): _description_. Defaults to 7.
+    """
     # dutyCycle became pulseLength in __microseconds__ (because of pwmFreq)
 
-    pwmFreq = 10_000 # output frequency (also the number of pulses per second)
-    print("Desired output frequency: %f Hz" % (pwmFreq))
-    pulseLength = 10 # % duty cycle
-    numPulses = 7
-    print("Desired output duty cycle: %f %%" % pulseLength)
+    freq = freq # output frequency (also the number of pulses per second)
+    print("Desired output frequency: %f Hz" % freq)
+    dutyCycle = dutyCycle # % duty cycle
+    numPulses = numPulses
+    print("Desired output duty cycle: %f %%" % dutyCycle)
     clockDivisor = 8 # DIO_EF_CLOCK#_DIVISOR
 
     clockFreq = coreFreq / clockDivisor # DIO_EF_CLOCK frequency
@@ -60,9 +68,9 @@ def pulse():
     # your PWM frequency and duty cycle do not divide into an integer value for
     # these settings, your desired settings are not possible and the values will be
     # interpreted as the nearest integer value on the device.
-    rollValue = float(clockFreq // pwmFreq) # DIO_EF_CLOCK#_ROLL_VALUE
+    rollValue = float(clockFreq // freq) # DIO_EF_CLOCK#_ROLL_VALUE
     print("Actual output frequency: %f Hz" % (clockFreq/rollValue))
-    configA = float(pulseLength * rollValue // 100) # DIO#_EF_CONFIG_A
+    configA = float(dutyCycle * rollValue // 100) # DIO#_EF_CONFIG_A
     print("Actual output duty cycle: %f %%" % (configA*100/rollValue))
     print(f"configA: {configA}")
 
@@ -105,23 +113,23 @@ def pulse():
     # pulseLength = duty cycle - percent of each cycle that the laser is on
 
     RES = 100
-    PULSES_LEN = numPulses/pwmFreq
+    PULSES_LEN = numPulses/freq
 
 
-    index = np.arange(0,pwmFreq*PULSES_LEN*RES)
+    index = np.arange(0,freq*PULSES_LEN*RES)
     y = np.zeros(len(index))
 
     count = 0
 
     for i in range(len(index)//100):
         for j in range(100):
-            if j<pulseLength:
+            if j<dutyCycle:
                 y[count] = 5
             else:
                 y[count] = 0
             count = count + 1
 
-    plt.plot(index/(pwmFreq*RES),y)
+    plt.plot(index/(freq*RES),y)
     plt.title("Expected Output")
     plt.ylabel("V Out (Volts)")
     plt.xlabel("time (seconds)")
@@ -145,10 +153,12 @@ def shutdown():
     print("Exiting")
 
 
+def leaveOn(on_seconds:float):
+    """ Leave the laser diode on for t seconds.
 
-
-def leaveOn(t):
-    """ Leave the laser diode on for t seconds"""
+    Args:
+        on_seconds (float): time laser diode is on
+    """
     # reference for this code: <https://github.com/labjack/labjack-ljm-python/blob/master/Examples/Basic/eWriteAddress.py>
     address = 2000 # DIO0; this is listed here <https://support.labjack.com/docs/3-1-modbus-map-t-series-datasheet> as address for all DIO ports
     dataType = ljm.constants.UINT16
@@ -159,7 +169,7 @@ def leaveOn(t):
     # value = 5.0 # 5 volts
     ljm.eWriteAddress(handle, address, dataType, value)
     
-    x_vals = np.arange(t)
+    x_vals = np.arange(on_seconds)
     y_vals = np.zeros(len(x_vals))
     y_vals[::] = 5
     plt.plot(x_vals, y_vals)
@@ -168,28 +178,19 @@ def leaveOn(t):
     plt.xlabel("time (seconds)")
     plt.show()
 
-    print(f"{t} seconds of pulse")
-    time.sleep(t)
+    print(f"{on_seconds} seconds of pulse")
+    time.sleep(on_seconds)
 
     ljm.eWriteAddress(handle, address, 0, dataType)
     
     print(f"Pulse ended")
 
 
-# Three possible scenarios:
-#
-# 1. On for length of time, then off (separate file)
-#       Use basic python timer.  Set pin High, wait in python, then set pin low
-# 2. Pulse (this code)
-# 3. Pulse train with number of pulses at given frequency and duration   
-#
-
-
-
+def pwm():
+    pass
 
  # Open LabJack
 handle = ljm.openS("T7", "ANY", "ANY")  # T7 device, Any connection, Any identifier
-
 
 info = ljm.getHandleInfo(handle)
 print("Opened a LabJack with Device type: %i, Connection type: %i,\n"
@@ -206,6 +207,16 @@ counterDIO = 18
 # T7 core frequency is 80 MHz
 coreFreq = 80_000_000
 
-pulse()
-# leaveOn(10)
-shutdown()
+parser = argparse.ArgumentParser()
+parser.add_argument("-o", "--on", help="pulse on for number of seconds", action="store_true")
+args = parser.parse_args()
+print(args)
+
+if args.on:
+    leaveOn(*args)
+# elif x == 2:
+#     pulse()
+# else:
+#     pwm()
+
+# shutdown()
