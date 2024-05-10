@@ -1,1 +1,3 @@
 labjack-ljm==1.23.0
+numpy
+matplotlib

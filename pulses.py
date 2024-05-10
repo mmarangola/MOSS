@@ -106,7 +106,7 @@ def pulse(freq=10_000, dutyCycle=50, numPulses=7):
 
 
     # Wait length seconds.
-    time.sleep(PULSES_LEN)
+    time.sleep(numPulses/freq+1)
     print("Stopping Signal")
     # Disable the DIO_EF clock, PWM output, and counter.
     aNames = ["DIO_EF_CLOCK0_ENABLE", "DIO%i_EF_ENABLE" % pwmDIO,
@@ -158,7 +158,7 @@ def leaveOn(on_seconds:float):
     print(f"Pulse ended")
 
 
-def pwm(freq, dutyCycle, duration):
+def pwm(freq, dutyCycle, duration:float):
     pwmFreq = freq # output frequency (also the number of pulses per second)
     print("Desired output frequency: %f Hz" % (pwmFreq))
     # % duty cycle
@@ -290,7 +290,7 @@ parser.add_argument(
 parser.add_argument(
     "-f",
     "--frequency",
-    type=int,
+    type=float,
     help="Maximum number of pulses per second",
     default=10_000,
 )
@@ -317,6 +317,7 @@ if args.number_pulses == 1 and args.duty_cycle == 100:
 elif args.number_pulses == 0:
     print(f"Run pwm routine at {args.duty_cycle}% duty cycle and {args.frequency} Hz, for {args.pwm_duration} seconds")
     pwm(args.frequency, args.duty_cycle, args.pwm_duration)
+
 else:
     print(
         f"Create {args.number_pulses} pulse(s) that will be on for "
